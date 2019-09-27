@@ -9,6 +9,7 @@ export KUBEVIRTCI_PATH
 export KUBEVIRTCI_CONFIG_PATH
 
 REGISTRY_NAME=${CLUSTER_NAME}-registry
+DOCKER_NETWORK_NAME=${CLUSTER_NAME}-local
 
 function _wait_kind_up {
     echo "Waiting for kind to be ready ..."  
@@ -63,12 +64,13 @@ function _run_registry() {
         docker rm $REGISTRY_NAME || true
         sleep 5
     done
-    docker run -d -p 5000:5000 --restart=always --name $REGISTRY_NAME registry:2
+    docker run -d -p 5000:5000 --restart=always --name $REGISTRY_NAME registry:2 --hostname registry
+    docker network connect $DOCKER_NETWORK_NAME $REGISTRY_NAME
 }
 
-function _configure_registry_on_node() {
+function _configure_registry_on_node() {    
     _configure-insecure-registry-and-reload "${NODE_CMD} $1 bash -c"
-    ${NODE_CMD} $1 socat TCP-LISTEN:5000,fork TCP:$(docker inspect --format '{{.NetworkSettings.IPAddress }}' registry):5000
+    docker network connect $DOCKER_NETWORK_NAME $1
 }
 
 function prepare_config() {
@@ -77,8 +79,8 @@ function prepare_config() {
 master_ip="127.0.0.1"
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-docker_prefix=localhost:5000/kubevirt
-manifest_docker_prefix=localhost:5000/kubevirt
+docker_prefix=registry:5000/kubevirt
+manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
 
@@ -115,6 +117,8 @@ function kind_up() {
     done
 
     _wait_containers_ready
+
+    docker network create --driver bridge $DOCKER_NETWORK_NAME
     _run_registry
 
     for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
@@ -135,4 +139,5 @@ function down() {
     fi
     $KIND delete cluster --name=${CLUSTER_NAME}
     rm ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+    docker rm $DOCKER_NETWORK_NAME
 }
