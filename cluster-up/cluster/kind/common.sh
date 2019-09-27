@@ -64,13 +64,11 @@ function _run_registry() {
         docker rm $REGISTRY_NAME || true
         sleep 5
     done
-    docker run -d -p 5000:5000 --restart=always --name $REGISTRY_NAME registry:2 --hostname registry
-    docker network connect $DOCKER_NETWORK_NAME $REGISTRY_NAME
+    docker run -d -p 5000:5000 --restart=always --name $REGISTRY_NAME registry:2 --hostname registry --network $DOCKER_NETWORK_NAME
 }
 
 function _configure_registry_on_node() {    
     _configure-insecure-registry-and-reload "${NODE_CMD} $1 bash -c"
-    docker network connect $DOCKER_NETWORK_NAME $1
 }
 
 function prepare_config() {
@@ -97,7 +95,14 @@ function kind_up() {
 
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-    
+
+    docker network create --driver bridge $DOCKER_NETWORK_NAME
+    for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
+        docker network connect $DOCKER_NETWORK_NAME $1
+        docker network disconnect bridge $1
+    done
+
+
     _kubectl create -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
 
     _wait_kind_up
@@ -118,7 +123,6 @@ function kind_up() {
 
     _wait_containers_ready
 
-    docker network create --driver bridge $DOCKER_NETWORK_NAME
     _run_registry
 
     for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
