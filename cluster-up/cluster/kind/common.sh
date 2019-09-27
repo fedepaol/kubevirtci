@@ -143,5 +143,5 @@ function down() {
     fi
     $KIND delete cluster --name=${CLUSTER_NAME}
     rm ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
-    docker rm $DOCKER_NETWORK_NAME
+    docker network rm $DOCKER_NETWORK_NAME
 }
