@@ -98,8 +98,8 @@ function kind_up() {
 
     docker network create --driver bridge $DOCKER_NETWORK_NAME
     for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
-        docker network connect $DOCKER_NETWORK_NAME $1
-        docker network disconnect bridge $1
+        docker network connect $DOCKER_NETWORK_NAME $node
+        docker network disconnect bridge $node
     done
 
 
