@@ -31,28 +31,13 @@ function deploy_sriov_operator {
     export RELEASE_VERSION=4.4
     export SRIOV_NETWORK_OPERATOR_IMAGE=quay.io/openshift/origin-sriov-network-operator:${RELEASE_VERSION}
     export SRIOV_NETWORK_CONFIG_DAEMON_IMAGE=quay.io/openshift/origin-sriov-network-config-daemon:${RELEASE_VERSION}
+    export SRIOV_NETWORK_WEBHOOK_IMAGE=quay.io/openshift/origin-sriov-network-webhook:${RELEASE_VERSION}
+    export NETWORK_RESOURCES_INJECTOR_IMAGE=quay.io/openshift/origin-sriov-dp-admission-controller:${RELEASE_VERSION}
     export OPERATOR_EXEC=${KUBECTL}
     export SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
     make deploy-setup-k8s
   popd
 }
-
-function deploy_network_resource_injector {
-  webhook_path=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/network-resources-injector-${INJECTOR_GIT_HASH}
-  if [ ! -d $webhook_path ]; then
-    curl -L https://github.com/intel/network-resources-injector/archive/${INJECTOR_GIT_HASH}/network-resources-injector.tar.gz | tar xz -C ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/
-  fi
-
-  pushd $webhook_path
-    make image
-    docker tag network-resources-injector localhost:5000/network-resources-injector
-    sed -i 's#image: network-resources-injector:latest#image: registry:5000/network-resources-injector:latest#' ./deployments/server.yaml
-    docker push localhost:5000/network-resources-injector
-    _kubectl apply -f ./deployments/auth.yaml
-    _kubectl apply -f ./deployments/server.yaml
-  popd
-}
-
 
 if [[ -z "$(_kubectl get nodes | grep $FIRST_WORKER_NODE)" ]]; then
   SRIOV_NODE=$MASTER_NODE
@@ -92,7 +77,7 @@ done
 
 
 # deploy multus
-_kubectl create -f $MANIFESTS_DIR/multus.yaml
+_kubectl apply -f https://raw.githubusercontent.com/intel/multus-cni/master/images/multus-daemonset.yml
 
 # give them some time to create pods before checking pod status
 sleep 10
@@ -107,16 +92,8 @@ ${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly wh
 deploy_sriov_operator
 
 _kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
-_kubectl label node $SRIOV_NODE sriov=true
-envsubst < $MANIFESTS_DIR/network_config_policy.yaml | _kubectl create -f -
 
 
-wait_pods_ready
-
-deploy_network_resource_injector
-
-# give the injector installer some time to create pods before checking pod status
-sleep 5
 wait_pods_ready
 
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio

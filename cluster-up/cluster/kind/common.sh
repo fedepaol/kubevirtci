@@ -106,15 +106,6 @@ function kind_up() {
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
-    echo "ipv6 cni: $IPV6_CNI"
-    if [ -z ${IPV6_CNI+x} ]; then
-        echo "no ipv6, safe to install flannel"
-        _kubectl create -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
-    else
-        echo "ipv6 enabled, using calico"
-        _kubectl create -f $KIND_MANIFESTS_DIR/kube-calico.yaml
-    fi
-
     _wait_kind_up
     _kubectl cluster-info
 
