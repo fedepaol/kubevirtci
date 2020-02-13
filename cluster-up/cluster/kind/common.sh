@@ -106,6 +106,10 @@ function kind_up() {
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
+    for node in $(_kubectl get nodes); do
+        docker exec $node /bin/sh -c "curl -L https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz | tar xz -C /opt/cni/bin"
+    done
+
     echo "ipv6 cni: $IPV6_CNI"
     if [ -z ${IPV6_CNI+x} ]; then
         echo "no ipv6, safe to install flannel"
