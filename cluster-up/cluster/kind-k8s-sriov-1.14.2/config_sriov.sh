@@ -41,7 +41,7 @@ function deploy_sriov_operator {
 
   pushd "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook
-    go run . -namespace sriov-network-operator -secret network-resources-injector-service -hook network-resources-injector
+    go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector
   popd
 }
 
