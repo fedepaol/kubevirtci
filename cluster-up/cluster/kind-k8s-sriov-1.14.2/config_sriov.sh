@@ -102,5 +102,10 @@ _kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
 
 wait_pods_ready
 
+_kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"items":{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "aGVsbG8NCg==" }}]}'
+_kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"items":{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "aGVsbG8NCg==" }}]}'
+_kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"items":{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "aGVsbG8NCg==" }}]}'
+
+
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
 

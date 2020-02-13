@@ -15,12 +15,10 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
-<<<<<<< Updated upstream
 	"fmt"
-=======
 	"io/ioutil"
->>>>>>> Stashed changes
 	"log"
 	"os"
 	"strings"
@@ -159,8 +157,10 @@ func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) 
 		},
 	}
 
-	if err := ioutil.WriteFile(namePrefix + ".cert", certificate, 0644); err != nil {
-		return err
+	var fileContent []byte
+	base64.StdEncoding.Encode(fileContent, certificate)
+	if err := ioutil.WriteFile(namePrefix+".cert", fileContent, 0644); err != nil {
+		log.Fatalf("Failed to create file %s", namePrefix)
 	}
 
 	_, err = clientset.CoreV1().Secrets(namespace).Create(secret)
