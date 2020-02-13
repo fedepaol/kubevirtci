@@ -9,7 +9,6 @@ MASTER_NODE="${CLUSTER_NAME}-control-plane"
 FIRST_WORKER_NODE="${CLUSTER_NAME}-worker"
 
 OPERATOR_GIT_HASH=8d3c30de8ec5a9a0c9eeb84ea0aa16ba2395cd68  # release-4.4
-INJECTOR_GIT_HASH=9ffd768cb7886072e81df3ac78ba2997810ceb55
 
 # not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
 # more reliable
@@ -33,9 +32,16 @@ function deploy_sriov_operator {
     export SRIOV_NETWORK_CONFIG_DAEMON_IMAGE=quay.io/openshift/origin-sriov-network-config-daemon:${RELEASE_VERSION}
     export SRIOV_NETWORK_WEBHOOK_IMAGE=quay.io/openshift/origin-sriov-network-webhook:${RELEASE_VERSION}
     export NETWORK_RESOURCES_INJECTOR_IMAGE=quay.io/openshift/origin-sriov-dp-admission-controller:${RELEASE_VERSION}
+    export SRIOV_CNI_IMAGE=quay.io/openshift/origin-sriov-cni:${RELEASE_VERSION}
+    export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/openshift/origin-sriov-network-device-plugin:${RELEASE_VERSION}
     export OPERATOR_EXEC=${KUBECTL}
     export SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
     make deploy-setup-k8s
+  popd
+
+  pushd "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
+    go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook
+    go run . -namespace sriov-network-operator -secret network-resources-injector-service -hook network-resources-injector
   popd
 }
 
@@ -97,3 +103,4 @@ _kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
 wait_pods_ready
 
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
+

@@ -167,6 +167,11 @@ func main() {
 	secretName := flag.String("secret", "", "the name of the secret")
 	flag.Parse()
 
+	if *namespace == "" || *prefix == "" || *secretName == "" {
+		flag.Usage()
+		log.Fatal("Not enough arguments")
+	}
+
 	var config *rest.Config
 	var err error
 	if *kubeconfig == "" {
