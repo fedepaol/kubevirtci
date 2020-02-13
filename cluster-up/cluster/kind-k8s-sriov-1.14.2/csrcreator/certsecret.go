@@ -157,9 +157,8 @@ func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) 
 		},
 	}
 
-	var fileContent []byte
-	base64.StdEncoding.Encode(fileContent, certificate)
-	if err := ioutil.WriteFile(namePrefix+".cert", fileContent, 0644); err != nil {
+	encoded := base64.StdEncoding.EncodeToString(certificate)
+	if err := ioutil.WriteFile(namePrefix+".cert", []byte(encoded), 0644); err != nil {
 		log.Fatalf("Failed to create file %s", namePrefix)
 	}
 

@@ -4,6 +4,7 @@ set -x
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
+CSRCREATORPATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
 
 MASTER_NODE="${CLUSTER_NAME}-control-plane"
 FIRST_WORKER_NODE="${CLUSTER_NAME}-worker"
@@ -39,7 +40,7 @@ function deploy_sriov_operator {
     make deploy-setup-k8s
   popd
 
-  pushd "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
+  pushd "${CSRCREATORPATH}" 
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector
   popd
@@ -102,9 +103,12 @@ _kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
 
 wait_pods_ready
 
-_kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"items":{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "aGVsbG8NCg==" }}]}'
-_kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"items":{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "aGVsbG8NCg==" }}]}'
-_kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"items":{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "aGVsbG8NCg==" }}]}'
+# we need to sleep as the configurations below need to appear
+sleep 30
+
+_kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+_kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
+_kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
 
 
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
