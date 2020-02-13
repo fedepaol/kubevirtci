@@ -16,13 +16,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	"k8s.io/api/certificates/v1beta1"
@@ -50,20 +50,22 @@ func generateCSR() ([]byte, []byte, error) {
 		strings.Join([]string{serviceName, namespace, "svc"}, "."),
 	}
 
-	glog.Infof("generating Certificate Signing Request %v", certRequest)
+	log.Printf("generating Certificate Signing Request %v", certRequest)
 
 	return csr.ParseRequest(certRequest)
 }
 
 func getSignedCertificate(request []byte) ([]byte, error) {
 	csrName := strings.Join([]string{prefix, "csr"}, "-")
+	log.Printf("before")
 	csr, err := clientset.CertificatesV1beta1().CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
+	log.Printf("after")
 	if csr != nil || err == nil {
-		glog.Infof("CSR %s already exists, removing it first", csrName)
+		log.Printf("CSR %s already exists, removing it first", csrName)
 		clientset.CertificatesV1beta1().CertificateSigningRequests().Delete(csrName, &metav1.DeleteOptions{})
 	}
 
-	glog.Infof("creating new CSR %s", csrName)
+	log.Printf("creating new CSR %s", csrName)
 	/* build Kubernetes CSR object */
 	csr = &v1beta1.CertificateSigningRequest{}
 	csr.ObjectMeta.Name = csrName
@@ -77,10 +79,10 @@ func getSignedCertificate(request []byte) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating CSR in Kubernetes API: %s")
 	}
-	glog.Infof("CSR pushed to the Kubernetes API")
+	log.Printf("CSR pushed to the Kubernetes API")
 
 	if csr.Status.Certificate != nil {
-		glog.Infof("using already issued certificate for CSR %s", csrName)
+		log.Printf("using already issued certificate for CSR %s", csrName)
 		return csr.Status.Certificate, nil
 	}
 	/* approve certificate in K8s API */
@@ -93,13 +95,13 @@ func getSignedCertificate(request []byte) ([]byte, error) {
 		LastUpdateTime: metav1.Now(),
 	})
 	csr, err = clientset.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(csr)
-	glog.Infof("certificate approval sent")
+	log.Printf("certificate approval sent")
 	if err != nil {
 		return nil, errors.Wrap(err, "error approving CSR in Kubernetes API")
 	}
 
 	/* wait for the cert to be issued */
-	glog.Infof("waiting for the signed certificate to be issued...")
+	log.Printf("waiting for the signed certificate to be issued...")
 	start := time.Now()
 	for range time.Tick(time.Second) {
 		csr, err = clientset.CertificatesV1beta1().CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
@@ -119,10 +121,10 @@ func getSignedCertificate(request []byte) ([]byte, error) {
 
 // Install creates resources required by mutating admission webhook
 func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) {
-
-	clientset, err := kubernetes.NewForConfig(config)
+	var err error
+	clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Fatalf("error setting up Kubernetes client: %s", err)
+		log.Fatalf("error setting up Kubernetes client: %s", err)
 	}
 
 	namespace = k8sNamespace
@@ -131,16 +133,16 @@ func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) 
 	/* generate CSR and private key */
 	csr, key, err := generateCSR()
 	if err != nil {
-		glog.Fatalf("error generating CSR and private key: %s", err)
+		log.Fatalf("error generating CSR and private key: %s", err)
 	}
-	glog.Infof("raw CSR and private key successfully created")
+	log.Printf("raw CSR and private key successfully created")
 
 	/* obtain signed certificate */
 	certificate, err := getSignedCertificate(csr)
 	if err != nil {
-		glog.Fatalf("error getting signed certificate: %s", err)
+		log.Fatalf("error getting signed certificate: %s", err)
 	}
-	glog.Infof("signed certificate successfully obtained")
+	log.Printf("signed certificate successfully obtained")
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -156,7 +158,7 @@ func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) 
 	if err != nil {
 		log.Fatal("Failed to create secret", err)
 	}
-	glog.Infof("Secret %s %s created", namespace, secretName)
+	log.Printf("Secret %s %s created", namespace, secretName)
 
 }
 
@@ -176,16 +178,17 @@ func main() {
 	var err error
 	if *kubeconfig == "" {
 		*kubeconfig = os.Getenv("KUBECONFIG")
+		fmt.Printf("Using env kubeconfig %s", *kubeconfig)
 	}
 
 	if *kubeconfig != "" {
-		glog.V(4).Infof("Loading kube client config from path %q", *kubeconfig)
+		log.Printf("Loading kube client config from path %q", *kubeconfig)
 		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
 		if err != nil {
-			log.Fatal("could not get the client")
+			log.Fatal("could not get the client", err)
 		}
 	} else {
-		glog.V(4).Infof("Using in-cluster kube client config")
+		log.Printf("Using in-cluster kube client config")
 		config, err = rest.InClusterConfig()
 		if err != nil {
 			log.Fatal("could not get the client")
