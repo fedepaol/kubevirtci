@@ -16,7 +16,11 @@ package main
 
 import (
 	"flag"
+<<<<<<< Updated upstream
 	"fmt"
+=======
+	"io/ioutil"
+>>>>>>> Stashed changes
 	"log"
 	"os"
 	"strings"
@@ -154,6 +158,11 @@ func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) 
 			"tls.key": key,
 		},
 	}
+
+	if err := ioutil.WriteFile(namePrefix + ".cert", certificate, 0644); err != nil {
+		return err
+	}
+
 	_, err = clientset.CoreV1().Secrets(namespace).Create(secret)
 	if err != nil {
 		log.Fatal("Failed to create secret", err)
@@ -165,11 +174,11 @@ func generate(config *rest.Config, k8sNamespace, namePrefix, secretName string) 
 func main() {
 	namespace := flag.String("namespace", "", "the namespace of the webhook")
 	kubeconfig := flag.String("kubeconfig", "", "the path of kubeconfig")
-	prefix := flag.String("hook", "", "the name of the hook")
+	hookName := flag.String("hook", "", "the name of the hook")
 	secretName := flag.String("secret", "", "the name of the secret")
 	flag.Parse()
 
-	if *namespace == "" || *prefix == "" || *secretName == "" {
+	if *namespace == "" || *hookName == "" || *secretName == "" {
 		flag.Usage()
 		log.Fatal("Not enough arguments")
 	}
@@ -194,5 +203,5 @@ func main() {
 			log.Fatal("could not get the client")
 		}
 	}
-	generate(config, *namespace, *prefix, *secretName)
+	generate(config, *namespace, *hookName, *secretName)
 }
